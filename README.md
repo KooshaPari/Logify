@@ -1,5 +1,5 @@
 > **Work state:** SCAFFOLD · **Progress:** `███░░░░░░░ 25%`
-> Rust zero-cost structured-logging framework (logkit, hexagonal); early, 17 files · updated 2026-06-02
+> Zero-cost structured-logging framework (Rust, hexagonal). GOAL: the org-shared logging surface (one sink/format contract for all Phenotype Rust crates); early at 17 files. Crate name `logkit` vs repo `Logify` drift to reconcile. · updated 2026-06-02
 
 //! # logkit - Zero-cost Structured Logging Framework
 //!
