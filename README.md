@@ -1,3 +1,6 @@
+> **Work state:** SCAFFOLD · **Progress:** `███░░░░░░░ 25%`
+> Rust zero-cost structured-logging framework (logkit, hexagonal); early, 17 files · updated 2026-06-02
+
 //! # logkit - Zero-cost Structured Logging Framework
 //!
 //! Hexagonal architecture with ports and adapters.
