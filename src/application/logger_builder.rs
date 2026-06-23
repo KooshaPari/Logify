@@ -2,8 +2,6 @@
 
 use crate::domain::{Level, LogEntry, LogError, Logger};
 use async_trait::async_trait;
-use std::sync::Arc;
-use parking_lot::RwLock;
 
 pub struct LoggerBuilder {
     name: String,
