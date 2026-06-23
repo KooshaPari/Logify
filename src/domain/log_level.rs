@@ -2,9 +2,15 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub enum Level {
-    Trace, Debug, Info, Warn, Error, Fatal,
+    Trace,
+    Debug,
+    #[default]
+    Info,
+    Warn,
+    Error,
+    Fatal,
 }
 
 impl Level {
@@ -18,10 +24,6 @@ impl Level {
             Level::Fatal => "FATAL",
         }
     }
-}
-
-impl Default for Level {
-    fn default() -> Self { Level::Info }
 }
 
 impl std::fmt::Display for Level {
