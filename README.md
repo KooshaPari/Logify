@@ -42,3 +42,4 @@ let logger = LoggerBuilder::new("app")
     .level(Level::Info)
     .build();
 ```
+ 
