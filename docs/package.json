@@ -14,6 +14,6 @@
     "build": "npm run docs:build"
   },
   "devDependencies": {
-    "vitepress": "1.5.0"
+    "vitepress": "1.6.4"
   }
 }
