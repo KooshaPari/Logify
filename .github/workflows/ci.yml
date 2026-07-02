@@ -15,6 +15,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  trace-gate:
+    name: FR Coverage Gate
+    uses: KooshaPari/phenotype-pm-core/.github/workflows/trace-gate.yml@main
   ci:
     name: Rust CI
     runs-on: ubuntu-latest
@@ -31,3 +34,4 @@ jobs:
         run: cargo test --workspace
       - name: Clippy (gating)
         run: cargo clippy --workspace -- -D warnings
+
