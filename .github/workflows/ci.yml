@@ -25,8 +25,12 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
       - name: Check
         run: cargo check --workspace
+      - name: Audit (supply-chain)
+        run: cargo audit --deny-warnings
       - name: Test
         run: cargo test --workspace
       - name: Clippy (gating)
