@@ -34,11 +34,23 @@ pub struct ConsoleLogger {
     level: Level,
 }
 
+impl ConsoleLogger {
+    fn write_entry(
+        &self,
+        entry: &LogEntry,
+        writer: &mut impl std::io::Write,
+    ) -> Result<(), LogError> {
+        writeln!(writer, "[{}] {}: {}", entry.level, self.name, entry.message)
+            .and_then(|_| writer.flush())
+            .map_err(|error| LogError::Io(error.to_string()))
+    }
+}
+
 #[async_trait]
 impl Logger for ConsoleLogger {
     async fn log(&self, entry: LogEntry) -> Result<(), LogError> {
         if entry.level >= self.level {
-            println!("[{}] {}: {}", entry.level, self.name, entry.message);
+            self.write_entry(&entry, &mut std::io::stdout().lock())?;
         }
         Ok(())
     }
@@ -51,6 +63,30 @@ impl Logger for ConsoleLogger {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn console_logger_returns_io_error() {
+        struct BrokenWriter;
+        impl std::io::Write for BrokenWriter {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::BrokenPipe,
+                    "closed",
+                ))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let logger = ConsoleLogger {
+            name: "test".into(),
+            level: Level::Info,
+        };
+        assert!(matches!(
+            logger.write_entry(&LogEntry::new(Level::Info, "message"), &mut BrokenWriter),
+            Err(LogError::Io(_))
+        ));
+    }
 
     #[tokio::test]
     async fn console_logger_logs_above_level() {

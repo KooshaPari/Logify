@@ -99,7 +99,9 @@ impl<S> BoundedSink<S> {
     ///
     /// When the limit is reached, subsequent `write` calls will **wait** until
     /// an in-flight write completes (backpressure).
+    /// Panics if `max_concurrent` is zero.
     pub fn new(inner: S, max_concurrent: usize) -> Self {
+        assert!(max_concurrent > 0, "sink capacity must be positive");
         Self {
             inner,
             semaphore: Arc::new(Semaphore::new(max_concurrent)),
@@ -222,8 +224,14 @@ mod tests {
         assert_eq!(inner.written().len(), 10);
     }
 
+    #[test]
+    #[should_panic(expected = "sink capacity must be positive")]
+    fn bounded_sink_rejects_zero_capacity() {
+        BoundedSink::new(RecordingSink::new(), 0);
+    }
+
     #[tokio::test]
-    async fn bounded_sink_rejects_zero_capacity() {
+    async fn bounded_sink_waits_for_capacity() {
         // A capacity of 0 means the semaphore starts at 0 — first write will wait
         // but we can test that it doesn't panic.
         let inner = RecordingSink::new();
