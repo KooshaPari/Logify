@@ -9,4 +9,6 @@ plugins:
 lint:
   enabled:
     - actionlint@1.7.7
+    - taplo@0.9.3
+    - yamllint@1.35.1
 # Rust formatting and clippy run as blocking steps in CI.
