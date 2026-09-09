@@ -1,5 +1,6 @@
 //! Logger Builder
 
+use crate::adapters::sinks::Sink;
 use crate::domain::{Level, LogEntry, LogError, Logger};
 use async_trait::async_trait;
 
@@ -21,11 +22,42 @@ impl LoggerBuilder {
         self
     }
 
+    /// Build a logger that forwards entries at or above the configured level
+    /// to an existing sink. Sink errors are returned to the caller unchanged.
+    ///
+    /// The sink controls formatting; the builder name is only used by the
+    /// default console logger returned by [`Self::build`].
+    pub fn build_with_sink(self, sink: impl Sink) -> impl Logger {
+        SinkLogger {
+            level: self.level,
+            sink,
+        }
+    }
+
     pub fn build(self) -> impl Logger {
         ConsoleLogger {
             name: self.name,
             level: self.level,
         }
+    }
+}
+
+struct SinkLogger<S> {
+    level: Level,
+    sink: S,
+}
+
+#[async_trait]
+impl<S: Sink> Logger for SinkLogger<S> {
+    async fn log(&self, entry: LogEntry) -> Result<(), LogError> {
+        if entry.level >= self.level {
+            self.sink.write(&entry).await?;
+        }
+        Ok(())
+    }
+
+    fn level(&self) -> Level {
+        self.level
     }
 }
 
