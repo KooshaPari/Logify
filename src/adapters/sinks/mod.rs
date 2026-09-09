@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 use crate::domain::{Level, LogEntry, LogError};
 use async_trait::async_trait;
-use tokio::sync::Semaphore;
+use tokio::sync::{RwLock, Semaphore};
 
 /// A destination for log entries.
 ///
@@ -80,6 +80,8 @@ impl Sink for ConsoleSink {
 ///
 /// This prevents unbounded resource usage when log producers temporarily
 /// outpace the underlying sink, providing backpressure.
+/// Flushing waits for earlier writes, then excludes new writes until the inner
+/// flush completes. Clones share both the capacity limit and flush barrier.
 ///
 /// # Example
 ///
@@ -91,6 +93,7 @@ impl Sink for ConsoleSink {
 pub struct BoundedSink<S> {
     inner: S,
     semaphore: Arc<Semaphore>,
+    flush_gate: Arc<RwLock<()>>,
 }
 
 impl<S> BoundedSink<S> {
@@ -99,10 +102,13 @@ impl<S> BoundedSink<S> {
     ///
     /// When the limit is reached, subsequent `write` calls will **wait** until
     /// an in-flight write completes (backpressure).
+    /// Panics if `max_concurrent` is zero.
     pub fn new(inner: S, max_concurrent: usize) -> Self {
+        assert!(max_concurrent > 0, "sink capacity must be positive");
         Self {
             inner,
             semaphore: Arc::new(Semaphore::new(max_concurrent)),
+            flush_gate: Arc::new(RwLock::new(())),
         }
     }
 }
@@ -115,6 +121,7 @@ where
         Self {
             inner: self.inner.clone(),
             semaphore: Arc::clone(&self.semaphore),
+            flush_gate: Arc::clone(&self.flush_gate),
         }
     }
 }
@@ -125,6 +132,7 @@ where
     S: Sink,
 {
     async fn write(&self, entry: &LogEntry) -> Result<(), LogError> {
+        let _write_guard = self.flush_gate.read().await;
         let _permit = self
             .semaphore
             .acquire()
@@ -134,11 +142,8 @@ where
     }
 
     async fn flush(&self) -> Result<(), LogError> {
-        let _permit = self
-            .semaphore
-            .acquire()
-            .await
-            .map_err(|e| LogError::Io(format!("semaphore closed: {e}")))?;
+        // Drain earlier writes and exclude new writes until flushing completes.
+        let _flush_guard = self.flush_gate.write().await;
         self.inner.flush().await
     }
 }
@@ -208,6 +213,7 @@ mod tests {
             let s = BoundedSink {
                 inner: inner.clone(),
                 semaphore: Arc::clone(&bounded.semaphore),
+                flush_gate: Arc::clone(&bounded.flush_gate),
             };
             handles.push(tokio::spawn(async move {
                 s.write(&LogEntry::new(Level::Info, format!("burst {i}")))
@@ -222,8 +228,14 @@ mod tests {
         assert_eq!(inner.written().len(), 10);
     }
 
+    #[test]
+    #[should_panic(expected = "sink capacity must be positive")]
+    fn bounded_sink_rejects_zero_capacity() {
+        BoundedSink::new(RecordingSink::new(), 0);
+    }
+
     #[tokio::test]
-    async fn bounded_sink_rejects_zero_capacity() {
+    async fn bounded_sink_waits_for_capacity() {
         // A capacity of 0 means the semaphore starts at 0 — first write will wait
         // but we can test that it doesn't panic.
         let inner = RecordingSink::new();
@@ -236,10 +248,12 @@ mod tests {
         // (timeout-based test would hang, so we just check it compiles and type-checks)
         let inner2 = inner.clone();
         let sem = Arc::clone(&bounded.semaphore);
+        let gate = Arc::clone(&bounded.flush_gate);
         let handle = tokio::spawn(async move {
             let bounded2 = BoundedSink {
                 inner: inner2,
                 semaphore: sem,
+                flush_gate: gate,
             };
             bounded2
                 .write(&LogEntry::new(Level::Warn, "should wait"))
@@ -264,10 +278,12 @@ mod tests {
         // Both permits acquired; no more available.
         let inner2 = inner.clone();
         let sem = Arc::clone(&bounded.semaphore);
+        let gate = Arc::clone(&bounded.flush_gate);
         let handle = tokio::spawn(async move {
             let b = BoundedSink {
                 inner: inner2,
                 semaphore: sem,
+                flush_gate: gate,
             };
             b.write(&LogEntry::new(Level::Info, "blocked")).await
         });

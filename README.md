@@ -44,3 +44,20 @@ let logger = LoggerBuilder::new("app")
     .build();
 ```
  
+
+Use an existing sink through the builder when output needs backpressure or a
+custom destination. The sink controls formatting; the builder name remains a
+label for the default console logger. Sink write errors propagate from `log`.
+
+```rust
+use logkit::{Level, LogEntry, Logger, LoggerBuilder};
+use logkit::adapters::sinks::{BoundedSink, ConsoleSink};
+
+# async fn example() -> Result<(), logkit::LogError> {
+let logger = LoggerBuilder::new("app")
+    .level(Level::Info)
+    .build_with_sink(BoundedSink::new(ConsoleSink, 16));
+logger.log(LogEntry::new(Level::Info, "ready")).await?;
+# Ok(())
+# }
+```
