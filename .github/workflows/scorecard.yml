@@ -20,8 +20,13 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
-    security:
-      permissions: read-all
+    permissions:
+      contents: read
+      actions: read
+      # Upload the existing SARIF report to code scanning.
+      security-events: write
+      # Authenticate the existing publish_results flow with OIDC.
+      id-token: write
 
     steps:
       - name: Checkout
