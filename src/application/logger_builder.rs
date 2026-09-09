@@ -27,7 +27,7 @@ impl LoggerBuilder {
     ///
     /// The sink controls formatting; the builder name is only used by the
     /// default console logger returned by [`Self::build`].
-    pub fn build_with_sink(self, sink: impl Sink) -> impl Logger {
+    pub fn build_with_sink<S: Sink>(self, sink: S) -> SinkLogger<S> {
         SinkLogger {
             level: self.level,
             sink,
@@ -42,9 +42,17 @@ impl LoggerBuilder {
     }
 }
 
-struct SinkLogger<S> {
+/// Logger backed by an existing sink, with an explicit flush operation.
+pub struct SinkLogger<S> {
     level: Level,
     sink: S,
+}
+
+impl<S: Sink> SinkLogger<S> {
+    /// Flush accepted entries through the sink, preserving any flush error.
+    pub async fn flush(&self) -> Result<(), LogError> {
+        self.sink.flush().await
+    }
 }
 
 #[async_trait]
