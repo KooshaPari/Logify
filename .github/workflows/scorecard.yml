@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # Let the existing Run Scorecard step inspect workflow configuration.
       actions: read
       # Upload the existing SARIF report to code scanning.
       security-events: write
