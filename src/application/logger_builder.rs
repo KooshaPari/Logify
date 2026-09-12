@@ -1,6 +1,5 @@
 //! Logger Builder
 
-use crate::adapters::sinks::Sink;
 use crate::domain::{Level, LogEntry, LogError, Logger};
 use async_trait::async_trait;
 
@@ -22,18 +21,6 @@ impl LoggerBuilder {
         self
     }
 
-    /// Build a logger that forwards entries at or above the configured level
-    /// to an existing sink. Sink errors are returned to the caller unchanged.
-    ///
-    /// The sink controls formatting; the builder name is only used by the
-    /// default console logger returned by [`Self::build`].
-    pub fn build_with_sink<S: Sink>(self, sink: S) -> SinkLogger<S> {
-        SinkLogger {
-            level: self.level,
-            sink,
-        }
-    }
-
     pub fn build(self) -> impl Logger {
         ConsoleLogger {
             name: self.name,
@@ -42,55 +29,16 @@ impl LoggerBuilder {
     }
 }
 
-/// Logger backed by an existing sink, with an explicit flush operation.
-pub struct SinkLogger<S> {
-    level: Level,
-    sink: S,
-}
-
-impl<S: Sink> SinkLogger<S> {
-    /// Flush accepted entries through the sink, preserving any flush error.
-    pub async fn flush(&self) -> Result<(), LogError> {
-        self.sink.flush().await
-    }
-}
-
-#[async_trait]
-impl<S: Sink> Logger for SinkLogger<S> {
-    async fn log(&self, entry: LogEntry) -> Result<(), LogError> {
-        if entry.level >= self.level {
-            self.sink.write(&entry).await?;
-        }
-        Ok(())
-    }
-
-    fn level(&self) -> Level {
-        self.level
-    }
-}
-
 pub struct ConsoleLogger {
     name: String,
     level: Level,
-}
-
-impl ConsoleLogger {
-    fn write_entry(
-        &self,
-        entry: &LogEntry,
-        writer: &mut impl std::io::Write,
-    ) -> Result<(), LogError> {
-        writeln!(writer, "[{}] {}: {}", entry.level, self.name, entry.message)
-            .and_then(|_| writer.flush())
-            .map_err(|error| LogError::Io(error.to_string()))
-    }
 }
 
 #[async_trait]
 impl Logger for ConsoleLogger {
     async fn log(&self, entry: LogEntry) -> Result<(), LogError> {
         if entry.level >= self.level {
-            self.write_entry(&entry, &mut std::io::stdout().lock())?;
+            println!("[{}] {}: {}", entry.level, self.name, entry.message);
         }
         Ok(())
     }
@@ -103,30 +51,6 @@ impl Logger for ConsoleLogger {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn console_logger_returns_io_error() {
-        struct BrokenWriter;
-        impl std::io::Write for BrokenWriter {
-            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::BrokenPipe,
-                    "closed",
-                ))
-            }
-            fn flush(&mut self) -> std::io::Result<()> {
-                Ok(())
-            }
-        }
-        let logger = ConsoleLogger {
-            name: "test".into(),
-            level: Level::Info,
-        };
-        assert!(matches!(
-            logger.write_entry(&LogEntry::new(Level::Info, "message"), &mut BrokenWriter),
-            Err(LogError::Io(_))
-        ));
-    }
 
     #[tokio::test]
     async fn console_logger_logs_above_level() {

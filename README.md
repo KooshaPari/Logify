@@ -4,7 +4,7 @@
 <!-- Slop issues are expected and intentionally present as part of an HITL-less -->
 <!-- /minimized AI-DD metaproject of learning, refining, and building brute-force -->
 <!-- training for both agents and the human operator. -->
-![Downloads](https://img.shields.io/github/downloads/KooshaPari/Logify/total?style=flat-square&label=downloads&color=blue) [![AI slop inside](https://sladge.net/badge.svg)](https://sladge.net)
+![Downloads](https://img.shields.io/github/downloads/KooshaPari/Logify/total?style=flat-square&label=downloads&color=blue)
 ![GitHub release](https://img.shields.io/github/v/release/KooshaPari/Logify?style=flat-square&label=release)
 ![License](https://img.shields.io/github/license/KooshaPari/Logify?style=flat-square)
 ![AI-Slop](https://img.shields.io/badge/AI--DD-Slop%20Expected-orange?style=flat-square)
@@ -44,20 +44,3 @@ let logger = LoggerBuilder::new("app")
     .build();
 ```
  
-
-Use an existing sink through the builder when output needs backpressure or a
-custom destination. The sink controls formatting; the builder name remains a
-label for the default console logger. Sink write errors propagate from `log`.
-
-```rust
-use logkit::{Level, LogEntry, Logger, LoggerBuilder};
-use logkit::adapters::sinks::{BoundedSink, ConsoleSink};
-
-# async fn example() -> Result<(), logkit::LogError> {
-let logger = LoggerBuilder::new("app")
-    .level(Level::Info)
-    .build_with_sink(BoundedSink::new(ConsoleSink, 16));
-logger.log(LogEntry::new(Level::Info, "ready")).await?;
-# Ok(())
-# }
-```
